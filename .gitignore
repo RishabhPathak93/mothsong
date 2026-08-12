@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+npm-debug.log*
+
+# Per-engagement secrets & artifacts — regenerate with `npm run seed`
+backend/data/flags.json
+backend/uploads/*
+!backend/uploads/.gitkeep
+flag_lfi.txt

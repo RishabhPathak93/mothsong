@@ -1,0 +1,30 @@
+# Render blueprint for the Mothsong backend.
+# The RCE/upload chain needs a persistent process + disk, so this is a Web Service
+# (a long-running Node process), NOT a serverless function.
+services:
+  - type: web
+    name: mothsong-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    # Seed once on boot if flags are missing, then start. (For a clean rotation per
+    # cohort, run `npm run seed` manually via the Render shell instead.)
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false # set in dashboard → Atlas SRV string
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_ORIGIN
+        sync: false # set to your exact Vercel URL, e.g. https://mothsong.vercel.app
+      - key: INTERNAL_PORT
+        value: 9099
+    # A small persistent disk keeps uploaded mods across restarts.
+    disk:
+      name: mothsong-uploads
+      mountPath: /opt/render/project/src/backend/uploads
+      sizeGB: 1
