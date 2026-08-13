@@ -5,6 +5,7 @@ import App from './App';
 import { AuthProvider } from './lib/auth';
 import './styles/global.css';
 import './styles/game.css';
+import './styles/arcade.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

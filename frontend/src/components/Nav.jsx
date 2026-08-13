@@ -21,6 +21,9 @@ export default function Nav() {
         <NavLink to="/play" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
           Play
         </NavLink>
+        <NavLink to="/arcade" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+          Arcade
+        </NavLink>
         <NavLink to="/leaderboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
           Grove
         </NavLink>

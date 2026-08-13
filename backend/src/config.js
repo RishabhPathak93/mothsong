@@ -35,17 +35,25 @@ const config = {
   env: process.env.NODE_ENV || 'development',
   isProd: (process.env.NODE_ENV || 'development') === 'production',
   port: Number(process.env.PORT) || 4000,
-  internalPort: Number(process.env.INTERNAL_PORT) || 9099,
+  internalPort: Number(process.env.INTERNAL_PORT) || 8000,
   mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/mothsong',
   jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
   frontendOrigin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
 
   // Absolute paths used by the LFI target (#3).
-  //   levelsDir : backend/levels
-  //   the LFI flag lives TWO directories above levelsDir (i.e. the repo root),
-  //   so only the `....//....//` double-strip bypass reaches it.
-  levelsDir: path.join(__dirname, '..', 'levels'),
+  //   levelsDir  : backend/game/content/assets/levels   (nested 4 deep under backend)
+  //   lfiFlagPath: backend/var/www/html/flag_lfi.txt
+  //
+  // The flag lives in a fake web-root, exactly where
+  //   levelsDir + "../../../../var/www/html/flag_lfi.txt"
+  // resolves. Because the sanitizer strips "../" only once (non-recursively), the
+  // intended payload is:
+  //   ....//....//....//....//var/www/html/flag_lfi.txt
+  // The four "....//" collapse to four "../", climbing levels→assets→content→game→backend,
+  // then descend into var/www/html. Fewer segments, or a raw (already-"../") path, miss it.
+  levelsDir: path.join(__dirname, '..', 'game', 'content', 'assets', 'levels'),
   uploadsDir: path.join(__dirname, '..', 'uploads'),
+  lfiFlagPath: path.join(__dirname, '..', 'var', 'www', 'html', 'flag_lfi.txt'),
 
   flags,
   flagsPath: FLAGS_PATH,

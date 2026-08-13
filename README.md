@@ -74,8 +74,8 @@ free Atlas cluster).
 cd backend
 cp .env.example .env            # set MONGO_URI + JWT_SECRET
 npm install
-npm run seed                    # generates flags, seeds the DB, prints the admin password
-npm start                       # → http://localhost:4000  (+ loopback internal service :9099)
+npm start                       # first boot AUTO-SEEDS (flags + admin password printed to console)
+                                # → http://localhost:4000  (+ loopback internal service :8000)
 
 # 2) Frontend (second terminal)
 cd frontend
@@ -87,8 +87,11 @@ cd backend
 npm run verify                  # exercises all four chains; exits 0 iff 4/4 pass
 ```
 
-`npm run seed` prints the four flags and the admin login **for the operator only** — keep
-that output private. Re-running `seed` rotates every flag and the admin password.
+The server **seeds itself on first boot** and prints the four flags and the admin login to
+the console **for the operator only** — keep that output private. The flags are stored in
+MongoDB (Atlas is durable), so every later restart loads the *same* flags — no shell or
+manual step needed. Run `npm run seed` only when you want to deliberately **rotate** every
+flag and the admin password for a new cohort.
 
 ---
 
@@ -123,13 +126,15 @@ add `express-mongo-sanitize` to strip `$`/`.` keys.
 
 The "import avatar from URL" feature fetches any URL server-side with no allowlist, and
 reflects non-image response bodies back in a debug field. A second HTTP server is bound to
-`127.0.0.1:9099` only (never exposed to the internet) — reachable *only* by making the
-backend fetch it for you:
+`127.0.0.1:8000` only (never exposed to the internet) and serves the flag at its **root** —
+`8000` is a common internal/dev port in every standard SSRF payload list, so the intended
+discovery is "recognise the SSRF, then hit a default loopback payload," not brute-forcing a
+deep path. Reachable *only* by making the backend fetch it for you:
 
 ```bash
 curl -X POST http://localhost:4000/api/profile/avatar-import \
   -H 'Content-Type: application/json' -H "Authorization: Bearer <token>" \
-  -d '{"url":"http://127.0.0.1:9099/internal/v1/service/identity"}'
+  -d '{"url":"http://127.0.0.1:8000/"}'
 ```
 
 The internal service returns JSON containing the flag; because it isn't an image, the
@@ -147,14 +152,16 @@ attempt — but it strips `../` exactly once and isn't recursive, so a nested pa
 survives and reassembles *after* the strip:
 
 ```
-....//....//   --(single .replace of "../")-->   ../../
+....//....//....//....//   --(single .replace of "../")-->   ../../../../
 ```
 
-The flag lives **two directories above** the levels folder, so only this double-strip
-bypass reaches it (a single `../` or a raw `../../` both get neutralized):
+`levelsDir` is `backend/game/content/assets/levels` and the flag sits in a fake web-root at
+`backend/var/www/html/flag_lfi.txt`, so you need exactly four `....//` to climb
+levels→assets→content→game→backend and drop into `var/www/html`. A shorter payload, or a
+raw already-`../` path, both get neutralized — only this double-strip bypass reaches it:
 
 ```bash
-curl "http://localhost:4000/api/levels/asset?name=....//....//flag_lfi.txt"
+curl "http://localhost:4000/api/levels/asset?name=....//....//....//....//var/www/html/flag_lfi.txt"
 ```
 
 **Fix:** don't blocklist — resolve the final path and verify it stays inside the levels
@@ -189,11 +196,14 @@ ownership on every object reference to kill the IDOR.
 
 ## Flags & scripts
 
-- **`npm run seed`** — generates fresh random `MOTHSONG{...}` flags, writes
-  `backend/data/flags.json` (loaded by the server at boot; the RCE flag is mirrored into
-  `process.env.FLAG_RCE`), drops the LFI flag file two dirs above `levels/`, and seeds the
-  DB (admin with a random plaintext password + demo drifters + demo scores). Nothing is
-  hardcoded.
+- **Boot-time seeding (automatic)** — on first boot the server generates fresh random
+  `MOTHSONG{...}` flags, persists them in MongoDB, seeds the admin (random plaintext
+  password) + demo drifters + scores, and prints the answer key to the logs. On every later
+  boot it reloads the *same* flags from MongoDB and re-materialises the ephemeral artifacts
+  (`data/flags.json`, the LFI flag file two dirs above `levels/`, and `process.env.FLAG_RCE`).
+  Nothing is hardcoded; flags stay stable across restarts.
+- **`npm run seed`** — force-**rotates** everything (new flags + admin password) for a new
+  cohort. Wipes the flag doc, users, and scores, generates fresh values, and prints them.
 - **`npm run verify`** — runs all four exploit chains against a live target and reports
   pass/fail. Point it anywhere with `BASE_URL`:
   ```bash
@@ -219,9 +229,14 @@ Create a free M0 cluster, add a database user, allow network access (`0.0.0.0/0`
 throwaway training box), and copy the SRV connection string.
 
 ### 2) Backend → Render
-Deploy `backend/` as a **Web Service** (blueprint in `backend/render.yaml`). Build
-`npm install`, start `node server.js`, health check `/api/health`. After first deploy, open
-the Render shell and run `npm run seed` once to arm the flags against the Atlas DB.
+Deploy `backend/` as a **Web Service** (blueprint in `backend/render.yaml`). Root directory
+`backend`, build `npm install`, start `node server.js`, health check `/api/health`.
+
+**No shell needed** (free tier doesn't have one): the server auto-seeds on first boot and
+stores the flags in Atlas, so they survive restarts and spin-downs. Read the flags + admin
+password from the Render **Logs** tab (look for the `[flags]` banner) after the first
+deploy. To rotate flags later, run `npm run seed` locally against the same `MONGO_URI` and
+restart the service.
 
 ### 3) Frontend → Vercel
 Import the repo, set **Root Directory = `frontend`** (Vite preset). `vercel.json` already
@@ -247,11 +262,11 @@ origins, so:
 | `VITE_API_BASE` | **Vercel** | the exact Render URL (no trailing slash) | Where the SPA sends `/api` calls. Baked in at build time — redeploy after changing. |
 | `MONGO_URI` | **Render** | your Atlas SRV string (with `/mothsong` db) | — |
 | `JWT_SECRET` | **Render** | any long random string | One value; changing it invalidates existing sessions. |
-| `INTERNAL_PORT` | **Render** | `9099` (or your choice) | The SSRF target port, as seen from the backend host. Tell `verify` via `INTERNAL_PORT`. |
+| `INTERNAL_PORT` | **Render** | `8000` (or your choice) | The SSRF target port, as seen from the backend host. Tell `verify` via `INTERNAL_PORT`. |
 | `NODE_ENV` | **Render** | `production` | Flips cookies to `SameSite=None; Secure`. |
 
 After both are live: seed on Render, then from anywhere run
-`BASE_URL=<render-url> INTERNAL_PORT=9099 npm run verify` to confirm 4/4 before inviting
+`BASE_URL=<render-url> INTERNAL_PORT=8000 npm run verify` to confirm 4/4 before inviting
 participants.
 
 ---

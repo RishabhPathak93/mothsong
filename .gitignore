@@ -5,8 +5,9 @@ dist/
 .DS_Store
 npm-debug.log*
 
-# Per-engagement secrets & artifacts — regenerate with `npm run seed`
+# Per-engagement secrets & artifacts — regenerated on boot / by `npm run seed`
 backend/data/flags.json
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/var/
 flag_lfi.txt

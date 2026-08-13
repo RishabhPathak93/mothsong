@@ -5,6 +5,7 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Play from './pages/Play';
+import Arcade from './pages/Arcade';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import { useAuth } from './lib/auth';
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/play" element={<Play />} />
+        <Route path="/arcade" element={<Arcade />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route
           path="/profile"

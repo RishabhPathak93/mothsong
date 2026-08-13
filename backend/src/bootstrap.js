@@ -81,10 +81,10 @@ function applyFlags(flags) {
     )
   );
 
-  // LFI flag file: two directories above backend/levels/.
-  const lfiPath = path.join(config.levelsDir, '..', '..', 'flag_lfi.txt');
+  // LFI flag file: in the fake web-root at backend/var/www/html/ (see config.lfiFlagPath).
+  fs.mkdirSync(path.dirname(config.lfiFlagPath), { recursive: true });
   fs.writeFileSync(
-    lfiPath,
+    config.lfiFlagPath,
     `${flags.lfi}\n\nIf you can read this through /api/levels/asset, the "../" strip was not recursive.\n`
   );
 

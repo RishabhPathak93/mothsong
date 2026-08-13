@@ -32,14 +32,14 @@ router.get('/', (req, res) => {
  * recursive, so a nested payload survives the strip and reassembles into a working
  * traversal AFTER the replace runs:
  *
- *     "....//....//flag_lfi.txt"
- *        --.replace(/\.\.\//g, '') removes the two inner "../" occurrences-->
- *     "../../flag_lfi.txt"
+ *     "....//....//....//....//var/www/html/flag_lfi.txt"
+ *        --.replace(/\.\.\//g, '') collapses each "....//" into one "../"-->
+ *     "../../../../var/www/html/flag_lfi.txt"
  *
- * Joined onto levels/, that resolves TWO directories above the levels folder — which
- * is exactly where the seed script drops flag_lfi.txt. A single "../" (→ stripped to
- * nothing) or a raw "../../" (→ stripped to "flag_lfi.txt") both fail; only the
- * double-strip bypass reaches the flag. That specificity is intentional.
+ * levelsDir is nested backend/game/content/assets/levels, so the four "../" climb
+ * levels→assets→content→game→backend, then descend into the fake web-root var/www/html/
+ * where the flag lives. A shallower payload, or a raw already-"../" path (→ stripped to
+ * nothing), both fail; only this specific double-strip bypass reaches the flag.
  *
  * ✅ REAL FIX:
  *   1) Don't sanitize by blocklist — resolve and CONTAIN. Normalize the final path
