@@ -12,12 +12,15 @@ const config = require('../config');
  * No auth (internal services often assume the network is the boundary — that assumption
  * is what SSRF breaks).
  *
- * It listens on port 8000 — a very common internal/dev port that appears in every
- * standard SSRF payload list — and it serves the identity metadata (with the flag) at
- * the ROOT path. So the intended discovery is: recognise the avatar-import SSRF, then
- * point it at a default loopback payload — `http://127.0.0.1:8000/` — and read the
- * reflected body. No deep, unguessable path to brute-force; the challenge is the SSRF
- * itself + finding the port with a standard wordlist.
+ * It listens on port 80 — the default HTTP port — and serves the identity metadata
+ * (with the flag) at the ROOT path. So the intended discovery is the simplest possible
+ * loopback SSRF payload: `http://127.0.0.1/` (no port needed at all). No deep path to
+ * brute-force, nothing unpredictable; the challenge is recognising the SSRF itself.
+ *
+ * ⚠ Port 80 is privileged (<1024) and needs root to bind. Locally that's usually fine;
+ * on some hosts the process runs unprivileged and binding 80 fails with EACCES — see the
+ * error handler below. If that happens, set INTERNAL_PORT to an unprivileged predictable
+ * port (e.g. 8080) and the payload becomes `http://127.0.0.1:8080/`.
  *
  * There is no link to it anywhere in the frontend. The only way to read its response is
  * to make the PUBLIC backend fetch it via the SSRF hole in /api/profile/avatar-import.
@@ -42,7 +45,7 @@ function startInternalServer() {
   const server = http.createServer((req, res) => {
     const path = (req.url || '/').split('?')[0];
     // Serve the flag at the root and a couple of conventional aliases, so a default
-    // SSRF payload against port 8000 lands on it directly.
+    // SSRF payload against port 80 (http://127.0.0.1/) lands on it directly.
     if (
       path === '/' ||
       path === '/identity' ||
@@ -55,6 +58,18 @@ function startInternalServer() {
     }
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'internal: not found' }));
+  });
+
+  // Don't let a bind failure crash the whole backend — log a clear, actionable warning.
+  server.on('error', (err) => {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[internal] could NOT bind 127.0.0.1:${config.internalPort} — ${err.code}. ` +
+        (err.code === 'EACCES'
+          ? 'Port <1024 needs root on this host. Set INTERNAL_PORT=8080 (and use http://127.0.0.1:8080/) to fix. '
+          : '') +
+        'SSRF flag (#2) is DOWN until the internal service is reachable.'
+    );
   });
 
   server.listen(config.internalPort, '127.0.0.1', () => {

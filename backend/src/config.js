@@ -35,7 +35,7 @@ const config = {
   env: process.env.NODE_ENV || 'development',
   isProd: (process.env.NODE_ENV || 'development') === 'production',
   port: Number(process.env.PORT) || 4000,
-  internalPort: Number(process.env.INTERNAL_PORT) || 8000,
+  internalPort: Number(process.env.INTERNAL_PORT) || 80,
   mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/mothsong',
   jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
   frontendOrigin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',

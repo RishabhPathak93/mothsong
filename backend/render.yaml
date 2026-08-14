@@ -22,7 +22,7 @@ services:
       - key: FRONTEND_ORIGIN
         sync: false # set to your exact Vercel URL, e.g. https://mothsong.vercel.app
       - key: INTERNAL_PORT
-        value: 8000
+        value: 80
     # A small persistent disk keeps uploaded mods across restarts.
     disk:
       name: mothsong-uploads

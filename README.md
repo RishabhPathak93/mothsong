@@ -75,7 +75,7 @@ cd backend
 cp .env.example .env            # set MONGO_URI + JWT_SECRET
 npm install
 npm start                       # first boot AUTO-SEEDS (flags + admin password printed to console)
-                                # → http://localhost:4000  (+ loopback internal service :8000)
+                                # → http://localhost:4000  (+ loopback internal service :80)
 
 # 2) Frontend (second terminal)
 cd frontend
@@ -126,19 +126,25 @@ add `express-mongo-sanitize` to strip `$`/`.` keys.
 
 The "import avatar from URL" feature fetches any URL server-side with no allowlist, and
 reflects non-image response bodies back in a debug field. A second HTTP server is bound to
-`127.0.0.1:8000` only (never exposed to the internet) and serves the flag at its **root** —
-`8000` is a common internal/dev port in every standard SSRF payload list, so the intended
-discovery is "recognise the SSRF, then hit a default loopback payload," not brute-forcing a
-deep path. Reachable *only* by making the backend fetch it for you:
+`127.0.0.1:80` only (never exposed to the internet) and serves the flag at its **root** —
+port 80 is the default HTTP port, so the intended solution is the simplest possible loopback
+SSRF payload, `http://127.0.0.1/`, with no port to guess at all. Reachable *only* by making
+the backend fetch it for you:
 
 ```bash
 curl -X POST http://localhost:4000/api/profile/avatar-import \
   -H 'Content-Type: application/json' -H "Authorization: Bearer <token>" \
-  -d '{"url":"http://127.0.0.1:8000/"}'
+  -d '{"url":"http://127.0.0.1/"}'
 ```
 
 The internal service returns JSON containing the flag; because it isn't an image, the
 handler echoes it in `debug.bodyPreview`.
+
+> ⚠ **Deploy note:** port 80 is privileged (<1024) and needs **root** to bind. Locally
+> that's usually fine. If your host runs the process unprivileged (some PaaS do), binding 80
+> fails with `EACCES` and the internal service won't start — the server logs a clear warning
+> and stays up, but flag #2 is down. Fix by setting `INTERNAL_PORT=8080` (equally predictable,
+> unprivileged) and the payload becomes `http://127.0.0.1:8080/`.
 
 **Fix:** resolve the host and reject private/loopback/link-local ranges (re-checking after
 redirects), allowlist schemes/hosts, validate `Content-Type` before touching the body, and
@@ -262,11 +268,11 @@ origins, so:
 | `VITE_API_BASE` | **Vercel** | the exact Render URL (no trailing slash) | Where the SPA sends `/api` calls. Baked in at build time — redeploy after changing. |
 | `MONGO_URI` | **Render** | your Atlas SRV string (with `/mothsong` db) | — |
 | `JWT_SECRET` | **Render** | any long random string | One value; changing it invalidates existing sessions. |
-| `INTERNAL_PORT` | **Render** | `8000` (or your choice) | The SSRF target port, as seen from the backend host. Tell `verify` via `INTERNAL_PORT`. |
+| `INTERNAL_PORT` | **Render** | `80` (or 8080 if 80 can't bind) | The SSRF target port, as seen from the backend host. Tell `verify` via `INTERNAL_PORT`. |
 | `NODE_ENV` | **Render** | `production` | Flips cookies to `SameSite=None; Secure`. |
 
 After both are live: seed on Render, then from anywhere run
-`BASE_URL=<render-url> INTERNAL_PORT=8000 npm run verify` to confirm 4/4 before inviting
+`BASE_URL=<render-url> INTERNAL_PORT=80 npm run verify` to confirm 4/4 before inviting
 participants.
 
 ---
